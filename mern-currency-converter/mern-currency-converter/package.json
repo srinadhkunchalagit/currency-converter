@@ -1,0 +1,15 @@
+{
+  "name": "mern-currency-converter",
+  "private": true,
+  "version": "1.0.0",
+  "description": "World Currency Converter — MERN stack version (MongoDB, Express, React, Node.js)",
+  "scripts": {
+    "install-all": "npm install --prefix server && npm install --prefix client",
+    "dev": "concurrently -n SERVER,CLIENT -c green,cyan \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "start:server": "npm run start --prefix server",
+    "build:client": "npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

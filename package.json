@@ -1,0 +1,25 @@
+{
+  "name": "mern-currency-converter",
+  "private": true,
+  "version": "1.0.0",
+  "description": "World Currency Converter — MERN stack version (MongoDB, Express, React, Node.js)",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "node server/server.js",
+    "build": "npm run build --prefix client",
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.2"
+  }
+}

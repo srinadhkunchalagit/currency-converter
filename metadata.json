@@ -1,0 +1,7 @@
+{
+  "name": "Ledger — World Currency Converter",
+  "description": "Real-time multi-currency converter with historical exchange rates, fee estimation, and user preferences.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
