@@ -675,6 +675,104 @@
         font-size: 13.5px;
       }
 
+      /* Quick pairs grid under Convert */
+      .quick-pair-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .quick-pair-card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: border-color 0.15s ease, transform 0.1s ease;
+      }
+      .quick-pair-card:hover {
+        border-color: var(--line-strong);
+        transform: translateY(-1px);
+      }
+      .quick-pair-card.active-pair {
+        border-color: var(--green);
+        background: rgba(31, 93, 76, 0.05);
+      }
+      .quick-pair-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .quick-pair-names {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        font-size: 13.5px;
+      }
+      .quick-pair-rate {
+        font-family: var(--serif);
+        font-size: 13px;
+        color: var(--ink-soft);
+      }
+      .copy-btn {
+        background: rgba(237, 230, 211, 0.15);
+        border: 1px solid rgba(237, 230, 211, 0.35);
+        color: var(--paper);
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: background 0.15s ease;
+      }
+      .copy-btn:hover {
+        background: rgba(237, 230, 211, 0.25);
+      }
+      .copy-btn.copied {
+        background: var(--gold);
+        color: var(--green-deep);
+        border-color: var(--gold);
+      }
+      .timeframe-bar {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .timeframe-btn {
+        background: #fff;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--ink-soft);
+      }
+      .timeframe-btn.active {
+        background: var(--green);
+        color: var(--paper);
+        border-color: var(--green);
+      }
+      .stats-row {
+        display: flex;
+        gap: 16px;
+        margin-top: 12px;
+        font-size: 12.5px;
+        color: var(--ink-soft);
+        flex-wrap: wrap;
+      }
+      .stats-row strong {
+        color: var(--ink);
+        font-family: var(--serif);
+      }
+
       footer.foot {
         margin-top: 36px;
         text-align: center;

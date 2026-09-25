@@ -56,12 +56,25 @@ function Watermark() {
 
 function Shell() {
   const [activeTab, setActiveTab] = useState("convert");
-  const { loaded, setFrom } = useApp();
+  const { loaded, setFrom, setTo, setAmount } = useApp();
 
   function openCodeInConvert(code) {
-    // Mirrors the original app: tapping a currency in the directory sets it
-    // as the "From" currency and jumps to the Convert tab.
+    // Sets as source currency and jumps to Convert tab
     setFrom(code);
+    setActiveTab("convert");
+  }
+
+  function openAsTo(code) {
+    // Sets as target currency and jumps to Convert tab
+    setTo(code);
+    setActiveTab("convert");
+  }
+
+  function loadConversion(h) {
+    // Loads an entire historical conversion and jumps to Convert tab
+    setFrom(h.from);
+    setTo(h.to);
+    setAmount(h.amount);
     setActiveTab("convert");
   }
 
@@ -83,9 +96,14 @@ function Shell() {
       {activeTab === "trends" && <TrendsPanel />}
       {activeTab === "fees" && <FeesPanel />}
       {activeTab === "currencies" && (
-        <CurrenciesPanel onOpenInConvert={openCodeInConvert} />
+        <CurrenciesPanel
+          onOpenInConvert={openCodeInConvert}
+          onOpenAsTo={openAsTo}
+        />
       )}
-      {activeTab === "history" && <HistoryPanel />}
+      {activeTab === "history" && (
+        <HistoryPanel onLoadConversion={loadConversion} />
+      )}
 
       <Footer />
     </div>

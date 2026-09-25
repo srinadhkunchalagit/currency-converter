@@ -4,6 +4,17 @@ import { CURRENCIES, CODES } from "../data/currencies.js";
 import { getLatest, getHistorical } from "../api/client.js";
 import { fmt } from "../utils/format.js";
 
+const POPULAR_PAIRS = [
+  "USD_INR",
+  "EUR_USD",
+  "GBP_INR",
+  "EUR_INR",
+  "AED_INR",
+  "CAD_INR",
+  "AUD_INR",
+  "USD_EUR",
+];
+
 export default function ConvertPanel() {
   const {
     t,
@@ -22,6 +33,8 @@ export default function ConvertPanel() {
   const [amountInput, setAmountInput] = useState(String(amount));
   const [status, setStatus] = useState({ text: t("loading"), err: false });
   const [result, setResult] = useState(null); // { converted, rateLine, inr }
+  const [copied, setCopied] = useState(false);
+  const [quickRates, setQuickRates] = useState({});
   const debounceRef = useRef(null);
   const lastLoggedRef = useRef(null);
 
@@ -33,12 +46,12 @@ export default function ConvertPanel() {
     const amt = parseFloat(amountInput) || 0;
     try {
       const latest = await getLatest(from, [to, "INR"]);
-      const rate = from === to ? 1 : latest.rates[to];
+      const rate = from === to ? 1 : (latest.rates[to] || 1);
       const converted = amt * rate;
 
       let inr = null;
       if (to !== "INR") {
-        const inrRate = from === "INR" ? 1 : latest.rates["INR"];
+        const inrRate = from === "INR" ? 1 : (latest.rates["INR"] || 1);
         inr = amt * inrRate;
       }
 
@@ -46,14 +59,14 @@ export default function ConvertPanel() {
       let changeDir = "flat";
       try {
         const y = await getHistorical(from, "yesterday", to);
-        const yRate = from === to ? 1 : y.rates[to];
+        const yRate = from === to ? 1 : (y.rates && y.rates[to]);
         if (yRate) {
           const pct = ((rate - yRate) / yRate) * 100;
           changePct = Math.abs(pct);
           changeDir = pct > 0.005 ? "up" : pct < -0.005 ? "down" : "flat";
         }
       } catch (e) {
-        /* ignore day-change failure, as in the original app */
+        /* day-change failure is non-blocking */
       }
 
       setResult({ converted, rate, inr, changePct, changeDir });
@@ -82,13 +95,44 @@ export default function ConvertPanel() {
     }
   }
 
+  // Fetch benchmark quick rates
+  useEffect(() => {
+    let cancelled = false;
+    getLatest("USD", ["INR", "EUR", "GBP", "AED", "CAD", "AUD"])
+      .then((data) => {
+        if (cancelled || !data || !data.rates) return;
+        setQuickRates((prev) => ({ ...prev, USD: data.rates }));
+      })
+      .catch(() => {});
+    getLatest("EUR", ["USD", "INR"])
+      .then((data) => {
+        if (cancelled || !data || !data.rates) return;
+        setQuickRates((prev) => ({ ...prev, EUR: data.rates }));
+      })
+      .catch(() => {});
+    getLatest("GBP", ["INR"])
+      .then((data) => {
+        if (cancelled || !data || !data.rates) return;
+        setQuickRates((prev) => ({ ...prev, GBP: data.rates }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Re-run whenever from/to changes, or amount settles after debounce.
   useEffect(() => {
     runConvert();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, amount]);
 
-  // Background auto-refresh every 60s + refresh on tab focus, like the original app.
+  // Keep input synchronized if amount changed externally (e.g. from history load)
+  useEffect(() => {
+    setAmountInput(String(amount));
+  }, [amount]);
+
+  // Background auto-refresh every 60s + refresh on tab focus
   useEffect(() => {
     const interval = setInterval(runConvert, 60000);
     const onFocus = () => runConvert();
@@ -113,6 +157,25 @@ export default function ConvertPanel() {
     setFrom(to);
     setTo(from);
   }
+
+  function copyResult() {
+    if (!result) return;
+    const text = `${amountInput} ${from} = ${fmt(result.converted)} ${to} (1 ${from} = ${fmt(result.rate, 4)} ${to})`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }
+
+  // Combined unique pairs list
+  const combinedPairs = Array.from(
+    new Set([...favorites, ...POPULAR_PAIRS]),
+  ).filter((pair) => {
+    const [f, tt] = pair.split("_");
+    return CURRENCIES[f] && CURRENCIES[tt];
+  });
 
   return (
     <section className="panel active" id="panel-convert">
@@ -226,12 +289,24 @@ export default function ConvertPanel() {
             </div>
             <div className="result-currency-name">{curName(to)}</div>
           </div>
-          {result && to !== "INR" && result.inr !== null && (
-            <div className="inr-badge" style={{ display: "flex" }}>
-              <span className="coin">₹</span>
-              <span className="val">₹ {fmt(result.inr)}</span>
-            </div>
-          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {result && (
+              <button
+                className={"copy-btn" + (copied ? " copied" : "")}
+                onClick={copyResult}
+                title="Copy conversion result"
+              >
+                {copied ? "✓ Copied" : "📋 Copy"}
+              </button>
+            )}
+            {result && to !== "INR" && result.inr !== null && (
+              <div className="inr-badge" style={{ display: "flex" }}>
+                <span className="coin">₹</span>
+                <span className="val">₹ {fmt(result.inr)}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="rate-line">
@@ -289,6 +364,52 @@ export default function ConvertPanel() {
       <div className="section-head">
         <h2>{t("quickFavHeading")}</h2>
         <p>{t("quickFavDesc")}</p>
+      </div>
+
+      <div className="quick-pair-grid">
+        {combinedPairs.map((pair) => {
+          const [f, tt] = pair.split("_");
+          const isCurrent = from === f && to === tt;
+          const pairIsFav = favorites.includes(pair);
+          const rateVal =
+            f === from && tt === to && result
+              ? result.rate
+              : quickRates[f] && quickRates[f][tt]
+                ? quickRates[f][tt]
+                : null;
+
+          return (
+            <div
+              key={pair}
+              className={"quick-pair-card" + (isCurrent ? " active-pair" : "")}
+              onClick={() => {
+                setFrom(f);
+                setTo(tt);
+              }}
+            >
+              <div className="quick-pair-info">
+                <div className="quick-pair-names">
+                  <span>{CURRENCIES[f].flag} {f}</span>
+                  <span>→</span>
+                  <span>{CURRENCIES[tt].flag} {tt}</span>
+                </div>
+                <div className="quick-pair-rate">
+                  {rateVal ? `1 ${f} ≈ ${fmt(rateVal, 4)} ${tt}` : `${curName(f)} → ${curName(tt)}`}
+                </div>
+              </div>
+              <button
+                className={"star-btn" + (pairIsFav ? " on" : "")}
+                title="Toggle favorite"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFavorite(pair);
+                }}
+              >
+                ★
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

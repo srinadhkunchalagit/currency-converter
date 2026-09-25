@@ -16,7 +16,7 @@ function Sparkline({ values }) {
   }
   const w = 400,
     h = 70,
-    pad = 4;
+    pad = 6;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
@@ -35,7 +35,7 @@ function Sparkline({ values }) {
         points={pts}
         fill="none"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -47,6 +47,7 @@ export default function TrendsPanel() {
   const { t, curName, from: globalFrom, to: globalTo } = useApp();
   const [trendFrom, setTrendFrom] = useState(globalFrom);
   const [trendTo, setTrendTo] = useState(globalTo);
+  const [days, setDays] = useState(30);
   const [cards, setCards] = useState(null);
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -65,11 +66,11 @@ export default function TrendsPanel() {
         safeHist("week"),
         safeHist("month"),
       ]);
-      const rToday = trendFrom === trendTo ? 1 : today.rates[trendTo];
-      const rYest = trendFrom === trendTo ? 1 : yest && yest.rates[trendTo];
-      const rWeek = trendFrom === trendTo ? 1 : week && week.rates[trendTo];
+      const rToday = trendFrom === trendTo ? 1 : (today.rates[trendTo] || 1);
+      const rYest = trendFrom === trendTo ? 1 : yest && (yest.rates ? yest.rates[trendTo] : rToday);
+      const rWeek = trendFrom === trendTo ? 1 : week && (week.rates ? week.rates[trendTo] : rToday);
       const rMonth =
-        trendFrom === trendTo ? 1 : month && month.rates[trendTo];
+        trendFrom === trendTo ? 1 : month && (month.rates ? month.rates[trendTo] : rToday);
 
       setCards([
         { lbl: t("today"), rate: rToday, base: null },
@@ -79,14 +80,14 @@ export default function TrendsPanel() {
       ]);
 
       try {
-        const s = await getSeries(trendFrom, trendTo, 30);
+        const s = await getSeries(trendFrom, trendTo, days);
         const dates = Object.keys(s.rates || {}).sort();
         const vals = dates
           .map((d) => (trendFrom === trendTo ? 1 : s.rates[d][trendTo]))
-          .filter((v) => v !== undefined);
+          .filter((v) => v !== undefined && v !== null);
         setSeries(vals);
       } catch (e) {
-        /* sparkline is optional */
+        /* sparkline is non-fatal */
       }
     } catch (e) {
       setErrored(true);
@@ -98,7 +99,14 @@ export default function TrendsPanel() {
   useEffect(() => {
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trendFrom, trendTo]);
+  }, [trendFrom, trendTo, days]);
+
+  const minRate = series && series.length ? Math.min(...series) : null;
+  const maxRate = series && series.length ? Math.max(...series) : null;
+  const avgRate =
+    series && series.length
+      ? series.reduce((acc, v) => acc + v, 0) / series.length
+      : null;
 
   return (
     <section className="panel active" id="panel-trends">
@@ -167,8 +175,31 @@ export default function TrendsPanel() {
           })}
       </div>
       <div className="ledger" style={{ padding: "16px 18px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+            {trendFrom} / {trendTo} {days}-Day Exchange Trend
+          </div>
+          <div className="timeframe-bar" style={{ marginBottom: 0 }}>
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                className={"timeframe-btn" + (days === d ? " active" : "")}
+                onClick={() => setDays(d)}
+              >
+                {d}D
+              </button>
+            ))}
+          </div>
+        </div>
         <Sparkline values={series} />
-        <div className="fees-note">{t("trendChartNote")}</div>
+        {series && series.length > 0 && (
+          <div className="stats-row">
+            <span>Low: <strong>{fmt(minRate, 4)}</strong></span>
+            <span>Average: <strong>{fmt(avgRate, 4)}</strong></span>
+            <span>High: <strong>{fmt(maxRate, 4)}</strong></span>
+          </div>
+        )}
+        <div className="fees-note" style={{ marginTop: 10 }}>{t("trendChartNote")}</div>
       </div>
     </section>
   );

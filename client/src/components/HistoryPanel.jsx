@@ -1,10 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { CURRENCIES } from "../data/currencies.js";
 import { fmt } from "../utils/format.js";
 
-export default function HistoryPanel() {
+export default function HistoryPanel({ onLoadConversion }) {
   const { t, history, clearHistory } = useApp();
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  function handleClear() {
+    if (!confirmClear && history.length > 0) {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000);
+      return;
+    }
+    clearHistory();
+    setConfirmClear(false);
+  }
 
   return (
     <section className="panel active" id="panel-history">
@@ -22,10 +33,20 @@ export default function HistoryPanel() {
           <h2>{t("historyHeading")}</h2>
           <p>{t("historyDesc")}</p>
         </div>
-        <button className="btn-outline" onClick={clearHistory}>
-          {t("clearHistory")}
-        </button>
+        {history.length > 0 && (
+          <button
+            className="btn-outline"
+            style={{
+              borderColor: confirmClear ? "var(--rust)" : "var(--line-strong)",
+              color: confirmClear ? "var(--rust)" : "var(--ink)",
+            }}
+            onClick={handleClear}
+          >
+            {confirmClear ? "Click again to confirm" : t("clearHistory")}
+          </button>
+        )}
       </div>
+
       <div className="ledger">
         {history.length === 0 && (
           <div className="empty-note">{t("noHistory")}</div>
@@ -33,14 +54,21 @@ export default function HistoryPanel() {
         {history.slice(0, 50).map((h, i) => {
           const dt = new Date(h.date);
           return (
-            <div className="ledger-row" key={i}>
-              <div className="hist-row">
-                <span className="flag">{CURRENCIES[h.from]?.flag}</span>
+            <div
+              className="ledger-row"
+              key={i}
+              style={{ cursor: onLoadConversion ? "pointer" : "default" }}
+              onClick={() => {
+                if (onLoadConversion) onLoadConversion(h);
+              }}
+            >
+              <div className="hist-row" style={{ flex: 1 }}>
+                <span className="flag">{CURRENCIES[h.from]?.flag || "🌐"}</span>
                 <span>
-                  {fmt(h.amount)} {h.from}
+                  <strong>{fmt(h.amount)}</strong> {h.from}
                 </span>
                 <span>→</span>
-                <span className="flag">{CURRENCIES[h.to]?.flag}</span>
+                <span className="flag">{CURRENCIES[h.to]?.flag || "🌐"}</span>
                 <span className="hist-amt">
                   {CURRENCIES[h.to]?.symbol} {fmt(h.result)}
                 </span>
@@ -52,6 +80,19 @@ export default function HistoryPanel() {
                   })}
                 </span>
               </div>
+              {onLoadConversion && (
+                <button
+                  className="btn-outline"
+                  style={{ padding: "4px 8px", fontSize: 11, marginLeft: 8 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadConversion(h);
+                  }}
+                  title="Load this conversion into Convert tab"
+                >
+                  Reload ↺
+                </button>
+              )}
             </div>
           );
         })}
