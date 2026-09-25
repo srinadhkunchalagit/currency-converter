@@ -11,8 +11,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health endpoint
-app.get("/api/health", (req, res) => {
+// Health endpoint (supports both /api/health and /health)
+app.get(["/api/health", "/health"], (req, res) => {
   res.json({
     ok: true,
     db: mongoose.connection?.readyState === 1,
@@ -20,9 +20,9 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// API Routes
-app.use("/api/rates", ratesRouter);
-app.use("/api/preferences", preferencesRouter);
+// API Routes (supports both /api/rates and /rates for Vercel Serverless Function rewrites)
+app.use(["/api/rates", "/rates"], ratesRouter);
+app.use(["/api/preferences", "/preferences"], preferencesRouter);
 
 // Mongoose / Database error middleware
 app.use((err, req, res, next) => {
@@ -40,9 +40,12 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// Explicit 404 for unhandled /api calls
-app.use("/api/*", (req, res) => {
-  res.status(404).json({ error: "not_found" });
+// Explicit 404 for unhandled API calls
+app.use(["/api/*", "/*"], (req, res, next) => {
+  if (req.path.startsWith("/api") || req.path.startsWith("/rates") || req.path.startsWith("/preferences")) {
+    return res.status(404).json({ error: "not_found" });
+  }
+  next();
 });
 
 module.exports = app;

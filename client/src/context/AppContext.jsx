@@ -19,34 +19,47 @@ import {
 const AppContext = createContext(null);
 
 const DEFAULT_MULTI_TARGETS = ["INR", "EUR", "GBP"];
+const STORAGE_KEY = "ledger_prefs_v1";
+
+function readLocalInit() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
 
 export function AppProvider({ children }) {
   const [clientId] = useState(getClientId);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(true);
 
-  const [lang, setLang] = useState("en");
+  const init = readLocalInit();
+  const [lang, setLang] = useState(init.lang || "en");
   const [from, setFrom] = useState("USD");
   const [to, setTo] = useState("INR");
   const [amount, setAmount] = useState(100);
-  const [favorites, setFavorites] = useState([]);
-  const [multiTargets, setMultiTargets] = useState(DEFAULT_MULTI_TARGETS);
-  const [history, setHistory] = useState([]);
+  const [favorites, setFavorites] = useState(Array.isArray(init.favorites) ? init.favorites : []);
+  const [multiTargets, setMultiTargets] = useState(
+    Array.isArray(init.multiTargets) && init.multiTargets.length
+      ? init.multiTargets
+      : DEFAULT_MULTI_TARGETS,
+  );
+  const [history, setHistory] = useState(Array.isArray(init.history) ? init.history : []);
 
-  // Load this device's saved preferences once, from the API (MongoDB-backed).
+  // Sync preferences with backend asynchronously
   useEffect(() => {
     let cancelled = false;
     getPreferences(clientId)
       .then((prefs) => {
-        if (cancelled) return;
+        if (cancelled || !prefs) return;
         if (prefs.lang) setLang(prefs.lang);
         if (Array.isArray(prefs.favorites)) setFavorites(prefs.favorites);
         if (Array.isArray(prefs.multiTargets) && prefs.multiTargets.length)
           setMultiTargets(prefs.multiTargets);
         if (Array.isArray(prefs.history)) setHistory(prefs.history);
       })
-      .catch(() => {
-        /* backend/DB not reachable yet — fall back to in-memory defaults */
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setLoaded(true);
       });
@@ -101,7 +114,7 @@ export function AppProvider({ children }) {
           last.to === entry.to &&
           Math.abs(last.amount - entry.amount) < 0.0001
         ) {
-          return prev; // same as original: skip near-duplicate auto conversions
+          return prev;
         }
         return [entry, ...prev].slice(0, 50);
       });
