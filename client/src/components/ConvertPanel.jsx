@@ -1,8 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useApp } from "../context/AppContext.jsx";
 import { CURRENCIES, CODES } from "../data/currencies.js";
 import { getLatest, getHistorical } from "../api/client.js";
 import { fmt } from "../utils/format.js";
+import { amountInWords } from "../utils/numberToWords.js";
+import { speakText, stopSpeaking } from "../utils/speechAssistant.js";
+import SearchableCurrencySelect from "./SearchableCurrencySelect.jsx";
 
 const POPULAR_PAIRS = [
   "USD_INR",
@@ -28,30 +31,69 @@ export default function ConvertPanel() {
     favorites,
     toggleFavorite,
     addHistory,
+    lang,
   } = useApp();
 
   const [amountInput, setAmountInput] = useState(String(amount));
   const [status, setStatus] = useState({ text: t("loading"), err: false });
-  const [result, setResult] = useState(null); // { converted, rateLine, inr }
+  const [result, setResult] = useState(null); // { converted, rate, inr, changePct, changeDir }
   const [copied, setCopied] = useState(false);
   const [quickRates, setQuickRates] = useState({});
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
   const debounceRef = useRef(null);
   const lastLoggedRef = useRef(null);
+  const currentRateRef = useRef(1);
 
   const pairKey = `${from}_${to}`;
   const isFav = favorites.includes(pairKey);
 
+  // Compute amount in words in the currently selected language
+  const convertedWords = useMemo(() => {
+    if (!result || result.converted === null || isNaN(result.converted)) return "";
+    return amountInWords(result.converted, to, lang);
+  }, [result, to, lang]);
+
+  // Voice Speech Synthesis (Read Aloud) using speechAssistant
+  function handleReadAloud() {
+    if (isSpeaking) {
+      stopSpeaking();
+      setIsSpeaking(false);
+      return;
+    }
+
+    if (!convertedWords) return;
+
+    speakText(convertedWords, lang, {
+      onStart: () => setIsSpeaking(true),
+      onEnd: () => setIsSpeaking(false),
+      onError: (err) => {
+        console.warn("TTS error:", err);
+        setIsSpeaking(false);
+      },
+    });
+  }
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  // Conversion logic
   async function runConvert() {
     setStatus((s) => ({ ...s, text: t("loading"), err: false }));
     const amt = parseFloat(amountInput) || 0;
     try {
       const latest = await getLatest(from, [to, "INR"]);
-      const rate = from === to ? 1 : (latest.rates[to] || 1);
+      const rate = from === to ? 1 : latest.rates[to] || 1;
+      currentRateRef.current = rate;
       const converted = amt * rate;
 
       let inr = null;
       if (to !== "INR") {
-        const inrRate = from === "INR" ? 1 : (latest.rates["INR"] || 1);
+        const inrRate = from === "INR" ? 1 : latest.rates["INR"] || 1;
         inr = amt * inrRate;
       }
 
@@ -59,7 +101,7 @@ export default function ConvertPanel() {
       let changeDir = "flat";
       try {
         const y = await getHistorical(from, "yesterday", to);
-        const yRate = from === to ? 1 : (y.rates && y.rates[to]);
+        const yRate = from === to ? 1 : y.rates && y.rates[to];
         if (yRate) {
           const pct = ((rate - yRate) / yRate) * 100;
           changePct = Math.abs(pct);
@@ -77,15 +119,20 @@ export default function ConvertPanel() {
         setStatus({ text: t("offlineNote"), err: true });
       }
 
+      // Automatic save to history with deduplication
       if (amt > 0) {
-        const key = `${from}|${to}|${amt.toFixed(4)}`;
-        if (lastLoggedRef.current !== key) {
-          lastLoggedRef.current = key;
+        const dedupeKey = `${from}|${to}|${amt.toFixed(4)}|${converted.toFixed(4)}`;
+        if (lastLoggedRef.current !== dedupeKey) {
+          lastLoggedRef.current = dedupeKey;
+          const words = amountInWords(converted, to, lang);
           addHistory({
             from,
+            fromName: curName(from),
             to,
+            toName: curName(to),
             amount: amt,
             result: converted,
+            words,
             date: new Date().toISOString(),
           });
         }
@@ -144,6 +191,7 @@ export default function ConvertPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
 
+  // "From" amount change
   function onAmountChange(e) {
     const val = e.target.value;
     setAmountInput(val);
@@ -160,7 +208,7 @@ export default function ConvertPanel() {
 
   function copyResult() {
     if (!result) return;
-    const text = `${amountInput} ${from} = ${fmt(result.converted)} ${to} (1 ${from} = ${fmt(result.rate, 4)} ${to})`;
+    const text = `${amountInput} ${from} = ${fmt(result.converted)} ${to} (${convertedWords})`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
         setCopied(true);
@@ -169,7 +217,6 @@ export default function ConvertPanel() {
     }
   }
 
-  // Combined unique pairs list
   const combinedPairs = Array.from(
     new Set([...favorites, ...POPULAR_PAIRS]),
   ).filter((pair) => {
@@ -186,7 +233,8 @@ export default function ConvertPanel() {
             justifyContent: "space-between",
             alignItems: "center",
             gap: 10,
-            marginBottom: 12,
+            marginBottom: 14,
+            flexWrap: "wrap",
           }}
         >
           <div className="fav-row" style={{ marginBottom: 0 }}>
@@ -202,7 +250,7 @@ export default function ConvertPanel() {
                     setTo(tt);
                   }}
                 >
-                  {CURRENCIES[f].flag} {f} → {CURRENCIES[tt].flag} {tt}
+                  {CURRENCIES[f]?.flag} {f} → {CURRENCIES[tt]?.flag} {tt}
                 </button>
               );
             })}
@@ -231,31 +279,35 @@ export default function ConvertPanel() {
         </div>
 
         <div className="convert-grid">
+          {/* FROM CURRENCY FIELD */}
           <div className="field">
-            <label>{t("fromLabel")}</label>
-            <div className="cur-select">
-              <span className="flag">{CURRENCIES[from].flag}</span>
-              <select value={from} onChange={(e) => setFrom(e.target.value)}>
-                {CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {code} — {curName(code)}
-                  </option>
-                ))}
-              </select>
-              <button
-                className={"star-btn" + (isFav ? " on" : "")}
-                title="Save as favorite pair"
-                onClick={() => toggleFavorite(pairKey)}
-              >
-                ★
-              </button>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label style={{ margin: 0 }}>{t("fromLabel")}</label>
+                <button
+                  type="button"
+                  className={"star-btn" + (isFav ? " on" : "")}
+                  title="Save as favorite pair"
+                  onClick={() => toggleFavorite(pairKey)}
+                >
+                  ★
+                </button>
+              </div>
             </div>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="amount-input"
-              value={amountInput}
-              onChange={onAmountChange}
+
+            <SearchableCurrencySelect
+              value={from}
+              onChange={setFrom}
+              label={t("fromLabel")}
+              curName={curName}
+              t={t}
             />
           </div>
 
@@ -263,36 +315,70 @@ export default function ConvertPanel() {
             ⇄
           </button>
 
+          {/* TO CURRENCY FIELD */}
           <div className="field">
-            <label>{t("toLabel")}</label>
-            <div className="cur-select">
-              <span className="flag">{CURRENCIES[to].flag}</span>
-              <select value={to} onChange={(e) => setTo(e.target.value)}>
-                {CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {code} — {curName(code)}
-                  </option>
-                ))}
-              </select>
-              <span style={{ width: 26 }} />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 6,
+              }}
+            >
+              <label style={{ margin: 0 }}>{t("toLabel")}</label>
             </div>
-            <div className="amount-input" style={{ opacity: 0.85 }}>
-              {result ? `${CURRENCIES[to].symbol} ${fmt(result.converted)}` : "—"}
-            </div>
+
+            <SearchableCurrencySelect
+              value={to}
+              onChange={setTo}
+              label={t("toLabel")}
+              curName={curName}
+              t={t}
+            />
           </div>
         </div>
 
+        {/* 2 & 11. AMOUNT INPUT SECTION - COMPLETELY CLEAN WITH NO MICROPHONE */}
+        <div className="amount-clean-section">
+          <label className="amount-clean-label">
+            {t("amount") || "Amount"} ({from})
+          </label>
+          <div className="amount-clean-input-box">
+            <span className="amount-flag-symbol">
+              {CURRENCIES[from]?.flag || "🌐"} {CURRENCIES[from]?.symbol || ""}
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="amount-input-field"
+              value={amountInput}
+              onChange={onAmountChange}
+              placeholder="Enter amount..."
+            />
+            <span className="amount-code-tag">{from}</span>
+          </div>
+        </div>
+
+        {/* NUMERICAL RESULT BLOCK */}
         <div className="result-block">
           <div>
             <div className="result-figure">
-              {result ? `${CURRENCIES[to].symbol} ${fmt(result.converted)}` : "—"}
+              {result ? `${CURRENCIES[to]?.symbol || ""} ${fmt(result.converted)}` : "—"}
             </div>
             <div className="result-currency-name">{curName(to)}</div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
             {result && (
               <button
+                type="button"
                 className={"copy-btn" + (copied ? " copied" : "")}
                 onClick={copyResult}
                 title="Copy conversion result"
@@ -309,12 +395,45 @@ export default function ConvertPanel() {
           </div>
         </div>
 
+        {/* AMOUNT IN WORDS & READ ALOUD VOICE ASSISTANT */}
+        {result && convertedWords && (
+          <div className="words-result-card">
+            <div className="words-result-content">
+              <span className="words-label">
+                {t("amountInWordsLabel") || "Amount in words"}:
+              </span>
+              <div className="words-text">{convertedWords}</div>
+            </div>
+
+            <button
+              type="button"
+              className={`read-aloud-btn ${isSpeaking ? "speaking" : ""}`}
+              onClick={handleReadAloud}
+              title={
+                isSpeaking
+                  ? t("stopReading") || "Stop"
+                  : t("readAloud") || "Read Aloud"
+              }
+            >
+              {isSpeaking ? (
+                <>
+                  <span className="speaking-pulse">■</span>
+                  <span>{t("stopReading") || "Stop"}</span>
+                </>
+              ) : (
+                <>
+                  <span className="speaker-icon">🔊</span>
+                  <span>{t("readAloud") || "Read Aloud"}</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         <div className="rate-line">
           {result && (
             <>
-              <span>
-                {t("rateSentence")(1, from, fmt(result.rate, 4), to)}
-              </span>
+              <span>{t("rateSentence")(1, from, fmt(result.rate, 4), to)}</span>
               {result.changePct !== null && (
                 <>
                   {" "}
@@ -347,10 +466,12 @@ export default function ConvertPanel() {
             </>
           )}
         </div>
+
         <div className={"status-msg" + (status.err ? " err" : "")}>
           {status.text}
           {status.err && (
             <button
+              type="button"
               className="btn-outline"
               style={{ padding: "3px 9px", fontSize: 11.5, marginLeft: 6 }}
               onClick={runConvert}
@@ -389,15 +510,22 @@ export default function ConvertPanel() {
             >
               <div className="quick-pair-info">
                 <div className="quick-pair-names">
-                  <span>{CURRENCIES[f].flag} {f}</span>
+                  <span>
+                    {CURRENCIES[f]?.flag} {f}
+                  </span>
                   <span>→</span>
-                  <span>{CURRENCIES[tt].flag} {tt}</span>
+                  <span>
+                    {CURRENCIES[tt]?.flag} {tt}
+                  </span>
                 </div>
                 <div className="quick-pair-rate">
-                  {rateVal ? `1 ${f} ≈ ${fmt(rateVal, 4)} ${tt}` : `${curName(f)} → ${curName(tt)}`}
+                  {rateVal
+                    ? `1 ${f} ≈ ${fmt(rateVal, 4)} ${tt}`
+                    : `${curName(f)} → ${curName(tt)}`}
                 </div>
               </div>
               <button
+                type="button"
                 className={"star-btn" + (pairIsFav ? " on" : "")}
                 title="Toggle favorite"
                 onClick={(e) => {

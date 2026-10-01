@@ -120,6 +120,28 @@ router.post("/:clientId/history", async (req, res) => {
   res.json(mem);
 });
 
+// DELETE /api/preferences/:clientId/history/:id
+router.delete("/:clientId/history/:id", async (req, res) => {
+  const { clientId, id } = req.params;
+  if (isDbConnected()) {
+    try {
+      const doc = await UserPreference.findOne({ clientId });
+      if (doc && Array.isArray(doc.history)) {
+        doc.history = doc.history.filter((h) => (h.id ? h.id !== id : String(h._id) !== id));
+        await doc.save();
+        return res.json(doc);
+      }
+    } catch (e) {
+      console.warn("DB delete single history failed, falling back to memory store:", e.message);
+    }
+  }
+
+  const mem = getMemoryDoc(clientId);
+  mem.history = mem.history.filter((h) => (h.id ? h.id !== id : String(h._id) !== id));
+  mem.updatedAt = new Date().toISOString();
+  res.json(mem);
+});
+
 // DELETE /api/preferences/:clientId/history
 router.delete("/:clientId/history", async (req, res) => {
   const { clientId } = req.params;

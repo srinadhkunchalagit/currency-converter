@@ -7,12 +7,13 @@ import React, {
   useState,
 } from "react";
 import { CURRENCIES } from "../data/currencies.js";
-import { I18N } from "../data/i18n.js";
+import { getTranslation } from "../data/i18n.js";
 import { getClientId } from "../utils/clientId.js";
 import {
   getPreferences,
   updatePreferences,
   addHistoryEntry as apiAddHistoryEntry,
+  deleteHistoryEntry as apiDeleteHistoryEntry,
   clearHistory as apiClearHistory,
 } from "../api/client.js";
 
@@ -106,19 +107,54 @@ export function AppProvider({ children }) {
 
   const addHistory = useCallback(
     (entry) => {
+      const now = new Date(entry.date || Date.now());
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+      ];
+      const day = entry.day || dayNames[now.getDay()];
+      const dateStr = entry.dateStr || `${monthNames[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+      const timeStr = entry.time || now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const fullTimestamp = `${day}, ${dateStr} — ${timeStr}`;
+
+      const richEntry = {
+        id: entry.id || `conv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        from: entry.from,
+        fromName: entry.fromName || (CURRENCIES[entry.from]?.name?.en || entry.from),
+        to: entry.to,
+        toName: entry.toName || (CURRENCIES[entry.to]?.name?.en || entry.to),
+        amount: Number(entry.amount),
+        result: Number(entry.result),
+        words: entry.words || "",
+        date: dateStr,
+        day,
+        time: timeStr,
+        fullTimestamp,
+        rawDate: now.toISOString(),
+      };
+
       setHistory((prev) => {
         const last = prev[0];
         if (
           last &&
-          last.from === entry.from &&
-          last.to === entry.to &&
-          Math.abs(last.amount - entry.amount) < 0.0001
+          last.from === richEntry.from &&
+          last.to === richEntry.to &&
+          Math.abs(last.amount - richEntry.amount) < 0.0001
         ) {
           return prev;
         }
-        return [entry, ...prev].slice(0, 50);
+        return [richEntry, ...prev].slice(0, 100);
       });
-      apiAddHistoryEntry(clientId, entry).catch(() => {});
+      apiAddHistoryEntry(clientId, richEntry).catch(() => {});
+    },
+    [clientId],
+  );
+
+  const deleteHistory = useCallback(
+    (id) => {
+      setHistory((prev) => prev.filter((h) => (h.id ? h.id !== id : h.rawDate !== id && h.date !== id)));
+      apiDeleteHistoryEntry(clientId, id).catch(() => {});
     },
     [clientId],
   );
@@ -129,7 +165,7 @@ export function AppProvider({ children }) {
   }, [clientId]);
 
   const t = useCallback(
-    (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key,
+    (key) => getTranslation(lang, key),
     [lang],
   );
 
@@ -160,6 +196,7 @@ export function AppProvider({ children }) {
       toggleMultiTarget,
       history,
       addHistory,
+      deleteHistory,
       clearHistory,
       t,
       curName,
@@ -178,6 +215,7 @@ export function AppProvider({ children }) {
       toggleMultiTarget,
       history,
       addHistory,
+      deleteHistory,
       clearHistory,
       t,
       curName,

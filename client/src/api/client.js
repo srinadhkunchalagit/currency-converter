@@ -287,6 +287,17 @@ export async function addHistoryEntry(clientId, entry) {
   return history;
 }
 
+export async function deleteHistoryEntry(clientId, id) {
+  const local = getLocalPrefs();
+  const history = (local.history || []).filter((h) => (h.id ? h.id !== id : h.date !== id));
+  setLocalPrefs({ ...local, history });
+
+  try {
+    fetch(`${BASE}/preferences/${clientId}/history/${id}`, { method: "DELETE" }).catch(() => {});
+  } catch (e) {}
+  return history;
+}
+
 export async function clearHistory(clientId) {
   const local = getLocalPrefs();
   setLocalPrefs({ ...local, history: [] });

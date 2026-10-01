@@ -20,6 +20,65 @@ app.get(["/api/health", "/health"], (req, res) => {
   });
 });
 
+// High-fidelity multilingual TTS audio stream endpoint
+app.get(["/api/tts", "/tts"], async (req, res) => {
+  const { text, lang } = req.query;
+  if (!text) {
+    return res.status(400).json({ error: "text_required" });
+  }
+
+  const speechLangMap = {
+    te: "te", // Telugu
+    hi: "hi", // Hindi
+    ta: "ta", // Tamil
+    bn: "bn", // Bengali
+    kn: "kn", // Kannada
+    gu: "gu", // Gujarati
+    ml: "ml", // Malayalam
+    mr: "mr", // Marathi
+    pa: "pa", // Punjabi
+    or: "or", // Odia
+    ur: "ur", // Urdu
+    as: "as", // Assamese
+    ne: "ne", // Nepali
+    sa: "sa", // Sanskrit
+    mai: "hi", // Maithili (Devanagari phonetics)
+    doi: "hi", // Dogri (Devanagari phonetics)
+    kok: "mr", // Konkani (Marathi/Devanagari phonetics)
+    brx: "hi", // Bodo
+    mni: "bn", // Manipuri (Bengali script)
+    sat: "hi", // Santali
+    sd: "ur", // Sindhi (Perso-Arabic phonetics)
+    ks: "ur", // Kashmiri
+    en: "en-in", // Indian English
+  };
+  const targetLang = speechLangMap[lang] || lang || "en-in";
+
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(
+      targetLang,
+    )}&client=tw-ob&q=${encodeURIComponent(text)}`;
+    const upstream = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+
+    if (!upstream.ok) {
+      return res.status(502).json({ error: "tts_upstream_failed" });
+    }
+
+    res.set("Content-Type", "audio/mpeg");
+    res.set("Cache-Control", "public, max-age=86400");
+    const arrayBuffer = await upstream.arrayBuffer();
+    return res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    console.warn("TTS proxy error:", err.message);
+    return res.status(500).json({ error: "tts_error" });
+  }
+});
+
 // API Routes (supports both /api/rates and /rates for Vercel Serverless Function rewrites)
 app.use(["/api/rates", "/rates"], ratesRouter);
 app.use(["/api/preferences", "/preferences"], preferencesRouter);

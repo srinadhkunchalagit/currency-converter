@@ -9,6 +9,7 @@ import FeesPanel from "./components/FeesPanel.jsx";
 import CurrenciesPanel from "./components/CurrenciesPanel.jsx";
 import HistoryPanel from "./components/HistoryPanel.jsx";
 import Footer from "./components/Footer.jsx";
+import Currency3DBackground from "./components/Currency3DBackground.jsx";
 
 const WATERMARK_SYMBOLS = [
   "$", "€", "£", "¥", "₹", "₩", "₺", "₪", "฿", "₱", "R$", "A$", "C$", "Fr", "zł", "kr",
@@ -80,6 +81,7 @@ function Shell() {
 
   return (
     <div className="wrap">
+      <Currency3DBackground />
       <Watermark />
       <div className="bg-grain" />
       <Header />
