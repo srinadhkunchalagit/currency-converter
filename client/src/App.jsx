@@ -57,7 +57,7 @@ function Watermark() {
 
 function Shell() {
   const [activeTab, setActiveTab] = useState("convert");
-  const { loaded, setFrom, setTo, setAmount } = useApp();
+  const { loaded, setFrom, setTo, setAmount, t } = useApp();
 
   function openCodeInConvert(code) {
     // Sets as source currency and jumps to Convert tab

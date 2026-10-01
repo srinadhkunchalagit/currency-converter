@@ -113,8 +113,26 @@ export default function ConvertPanel() {
 
       setResult({ converted, rate, inr, changePct, changeDir });
 
+      const now = new Date();
+      const dateFormatted = now.toLocaleDateString("en-US", {
+        timeZone: "Asia/Kolkata",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const timeFormatted = now.toLocaleTimeString("en-US", {
+        timeZone: "Asia/Kolkata",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+
       if (latest.live) {
-        setStatus({ text: `${t("today")}: ${latest.date}`, err: false });
+        setStatus({
+          text: `Live rates • ${dateFormatted} • ${timeFormatted} IST`,
+          err: false,
+        });
       } else {
         setStatus({ text: t("offlineNote"), err: true });
       }
@@ -290,7 +308,7 @@ export default function ConvertPanel() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style={{ margin: 0 }}>{t("fromLabel")}</label>
+                <label style={{ margin: 0 }}>{t("fromLabel") || "FROM"}</label>
                 <button
                   type="button"
                   className={"star-btn" + (isFav ? " on" : "")}
@@ -305,7 +323,7 @@ export default function ConvertPanel() {
             <SearchableCurrencySelect
               value={from}
               onChange={setFrom}
-              label={t("fromLabel")}
+              label={t("fromLabel") || "FROM"}
               curName={curName}
               t={t}
             />
@@ -325,13 +343,13 @@ export default function ConvertPanel() {
                 marginBottom: 6,
               }}
             >
-              <label style={{ margin: 0 }}>{t("toLabel")}</label>
+              <label style={{ margin: 0 }}>{t("toLabel") || "TO"}</label>
             </div>
 
             <SearchableCurrencySelect
               value={to}
               onChange={setTo}
-              label={t("toLabel")}
+              label={t("toLabel") || "TO"}
               curName={curName}
               t={t}
             />

@@ -17,9 +17,12 @@ const historicalCache = new Map(); // key -> { t, data }
 const seriesCache = new Map(); // key -> { t, data }
 
 function todayStr(offsetDays = 0) {
+  // Use Indian Standard Time (UTC+5:30) so date matches live IST calendar (Oct 2, 2026)
   const d = new Date();
-  d.setDate(d.getDate() - offsetDays);
-  return d.toISOString().slice(0, 10);
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(d.getTime() + istOffsetMs);
+  istDate.setDate(istDate.getDate() - offsetDays);
+  return istDate.toISOString().slice(0, 10);
 }
 
 function pseudoVariance(seedStr) {
@@ -77,7 +80,7 @@ async function getLatest(base, neededCodes) {
     if (json.result !== "success") throw new Error("open.er-api error result");
     const data = {
       base,
-      date: (json.time_last_update_utc || "").slice(0, 16) || todayStr(0),
+      date: todayStr(0),
       rates: json.rates,
     };
     if (!hasNeeded(data, base, neededCodes))
