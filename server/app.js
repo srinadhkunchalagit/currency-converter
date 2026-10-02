@@ -77,6 +77,15 @@ Return a JSON object containing:
   }
 });
 
+// API status root endpoint
+app.get(["/api", "/api/"], (req, res) => {
+  res.json({
+    ok: true,
+    service: "Ledger Currency Converter API",
+    status: "online",
+  });
+});
+
 // Health endpoint (supports both /api/health and /health)
 app.get(["/api/health", "/health"], (req, res) => {
   res.json({

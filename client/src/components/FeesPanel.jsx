@@ -131,64 +131,66 @@ export default function FeesPanel() {
         </div>
       )}
 
-      <table className="fees">
-        <thead>
-          <tr>
-            <th>{t("provider")}</th>
-            <th>{t("markup")}</th>
-            <th>{t("effRate")}</th>
-            <th>{t("youReceive")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading && (
+      <div className="fees-table-wrap">
+        <table className="fees">
+          <thead>
             <tr>
-              <td colSpan={4} className="empty-note">
-                {t("loading")}
-              </td>
+              <th>{t("provider")}</th>
+              <th>{t("markup")}</th>
+              <th>{t("effRate")}</th>
+              <th>{t("youReceive")}</th>
             </tr>
-          )}
-          {!loading && errored && (
-            <tr>
-              <td colSpan={4} className="empty-note">
-                {t("errorFetch")}
-              </td>
-            </tr>
-          )}
-          {!loading &&
-            !errored &&
-            rows &&
-            rows.map((r, i) => (
-              <tr key={r.name}>
-                <td>
-                  <div style={{ fontWeight: 600 }}>{r.name}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>{r.type}</div>
-                </td>
-                <td>{(r.markup * 100).toFixed(2)}%</td>
-                <td>{fmt(r.effRate, 4)}</td>
-                <td className={i === 0 ? "best" : ""}>
-                  <div style={{ fontWeight: 700 }}>
-                    {CURRENCIES[to]?.symbol} {fmt(r.receive)}
-                  </div>
-                  {i === 0 && (
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        background: "rgba(31, 93, 76, 0.15)",
-                        color: "var(--green)",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Best Value
-                    </span>
-                  )}
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={4} className="empty-note">
+                  {t("loading")}
                 </td>
               </tr>
-            ))}
-        </tbody>
-      </table>
+            )}
+            {!loading && errored && (
+              <tr>
+                <td colSpan={4} className="empty-note">
+                  {t("errorFetch")}
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              !errored &&
+              rows &&
+              rows.map((r, i) => (
+                <tr key={r.name}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{r.name}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>{r.type}</div>
+                  </td>
+                  <td>{(r.markup * 100).toFixed(2)}%</td>
+                  <td>{fmt(r.effRate, 4)}</td>
+                  <td className={i === 0 ? "best" : ""}>
+                    <div style={{ fontWeight: 700 }}>
+                      {CURRENCIES[to]?.symbol} {fmt(r.receive)}
+                    </div>
+                    {i === 0 && (
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          background: "rgba(31, 93, 76, 0.15)",
+                          color: "var(--green)",
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Best Value
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
       <div className="fees-note">{t("feesNote")}</div>
     </section>
   );

@@ -115,91 +115,93 @@ export default function SearchableCurrencySelect({
       </button>
 
       {isOpen && (
-        <div className="cur-dropdown-modal">
-          <div className="cur-dropdown-header">
-            <div className="cur-search-bar">
-              <span className="search-icon">🔍</span>
-              <input
-                ref={searchInputRef}
-                type="text"
-                className="cur-search-input"
-                placeholder={t("searchCurrenciesPlaceholder") || "Search currencies (INR, USD, India)..."}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
-                <button
-                  type="button"
-                  className="search-clear-btn"
-                  onClick={() => setSearch("")}
-                  title="Clear search"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              className="cur-dropdown-close"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Quick popular shortcuts if search is empty */}
-          {!search && (
-            <div className="cur-quick-pills">
-              {["INR", "USD", "EUR", "GBP", "AED", "CAD", "AUD", "JPY", "SGD"].map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`cur-quick-pill ${c === value ? "active" : ""}`}
-                  onClick={() => {
-                    onChange(c);
-                    setIsOpen(false);
-                  }}
-                >
-                  {CURRENCIES[c]?.flag} {c}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="cur-list-scroll">
-            {filteredCodes.length === 0 ? (
-              <div className="cur-no-results">
-                {t("noResults") || "No currencies match your search."}
-              </div>
-            ) : (
-              filteredCodes.map((code) => {
-                const item = CURRENCIES[code] || {};
-                const isSelected = code === value;
-                const name = curName ? curName(code) : item.name?.en || code;
-                return (
+        <div className="cur-dropdown-backdrop" onClick={() => setIsOpen(false)}>
+          <div className="cur-dropdown-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cur-dropdown-header">
+              <div className="cur-search-bar">
+                <span className="search-icon">🔍</span>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  className="cur-search-input"
+                  placeholder={t("searchCurrenciesPlaceholder") || "Search currencies (INR, USD, India)..."}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search && (
                   <button
-                    key={code}
                     type="button"
-                    className={`cur-list-item ${isSelected ? "selected" : ""}`}
+                    className="search-clear-btn"
+                    onClick={() => setSearch("")}
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="cur-dropdown-close"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick popular shortcuts if search is empty */}
+            {!search && (
+              <div className="cur-quick-pills">
+                {["INR", "USD", "EUR", "GBP", "AED", "CAD", "AUD", "JPY", "SGD"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`cur-quick-pill ${c === value ? "active" : ""}`}
                     onClick={() => {
-                      onChange(code);
+                      onChange(c);
                       setIsOpen(false);
                     }}
                   >
-                    <span className="item-flag">{item.flag || "🌐"}</span>
-                    <div className="item-details">
-                      <div className="item-line1">
-                        <strong className="item-code">{code}</strong>
-                        <span className="item-symbol">{item.symbol}</span>
-                      </div>
-                      <div className="item-line2">{name}</div>
-                    </div>
-                    {isSelected && <span className="item-check">✓</span>}
+                    {CURRENCIES[c]?.flag} {c}
                   </button>
-                );
-              })
+                ))}
+              </div>
             )}
+
+            <div className="cur-list-scroll">
+              {filteredCodes.length === 0 ? (
+                <div className="cur-no-results">
+                  {t("noResults") || "No currencies match your search."}
+                </div>
+              ) : (
+                filteredCodes.map((code) => {
+                  const item = CURRENCIES[code] || {};
+                  const isSelected = code === value;
+                  const name = curName ? curName(code) : item.name?.en || code;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`cur-list-item ${isSelected ? "selected" : ""}`}
+                      onClick={() => {
+                        onChange(code);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <span className="item-flag">{item.flag || "🌐"}</span>
+                      <div className="item-details">
+                        <div className="item-line1">
+                          <strong className="item-code">{code}</strong>
+                          <span className="item-symbol">{item.symbol}</span>
+                        </div>
+                        <div className="item-line2">{name}</div>
+                      </div>
+                      {isSelected && <span className="item-check">✓</span>}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
